@@ -1,0 +1,12 @@
+{
+  "name": "thyroid-project",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": ".\\venv\\Scripts\\python -m uvicorn api:app --reload",
+    "client": "npm --prefix frontend run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
