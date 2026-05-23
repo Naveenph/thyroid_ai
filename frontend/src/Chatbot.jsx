@@ -15,7 +15,7 @@ const SUGGESTIONS = [
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { sender: 'bot', text: 'Hello! I am your Thyroid AI assistant. Ask me anything about thyroid health, your results, or next steps. 🩺' }
+    { sender: 'bot', text: 'Hello! I am your Thyroid Disease Prediction assistant. Ask me anything about thyroid health, your results, or next steps. 🩺' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);

@@ -13,3 +13,6 @@ sqlalchemy
 pymysql
 fastapi
 uvicorn
+flask
+flask-cors
+pyjwt

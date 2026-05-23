@@ -1,9 +1,9 @@
 {
-  "name": "thyroid-project",
+  "name": "thyroid-disease-prediction",
   "version": "1.0.0",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "server": ".\\venv\\Scripts\\python -m uvicorn api:app --reload",
+    "server": ".\\venv\\Scripts\\python api.py",
     "client": "npm --prefix frontend run dev"
   },
   "devDependencies": {

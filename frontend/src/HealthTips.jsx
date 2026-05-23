@@ -1,44 +1,53 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, ChevronLeft, ChevronRight } from 'lucide-react';
+import axios from 'axios';
 
-const tips = [
+const DEFAULT_TIPS = [
   {
+    id: 1,
     emoji: '🥗',
     title: 'Iodine-Rich Diet',
     body: 'Include seafood, dairy, and iodized salt in your meals. Iodine is essential for proper thyroid hormone production and a stable metabolism.',
   },
   {
+    id: 2,
     emoji: '🏃',
     title: 'Stay Active',
     body: 'Regular aerobic exercise like walking or cycling helps maintain thyroid hormone balance and boosts overall metabolic efficiency.',
   },
   {
+    id: 3,
     emoji: '😴',
     title: 'Prioritize Sleep',
     body: 'Poor sleep disrupts cortisol and thyroid hormone rhythms. Aim for 7–9 hours of quality sleep every night to support glandular health.',
   },
   {
+    id: 4,
     emoji: '☕',
     title: 'Limit Caffeine',
     body: 'Excess caffeine may interfere with thyroid hormone absorption. Take medications at least 60 minutes before consuming coffee.',
   },
   {
+    id: 5,
     emoji: '🧘',
     title: 'Manage Stress',
     body: 'Chronic stress raises cortisol levels that suppress thyroid function. Mindfulness and deep breathing exercises can help regulate hormonal balance.',
   },
   {
+    id: 6,
     emoji: '🩺',
     title: 'Regular Checkups',
     body: 'Annual TSH blood tests are recommended for early detection. If you have a family history of thyroid conditions, start screenings earlier.',
   },
   {
+    id: 7,
     emoji: '💊',
     title: 'Medication Timing',
     body: 'Thyroid medications like levothyroxine are most effective on an empty stomach, 30–60 minutes before breakfast.',
   },
   {
+    id: 8,
     emoji: '🌿',
     title: 'Watch Goitrogens',
     body: 'Foods like raw cabbage, broccoli, and soy may interfere with thyroid function in large amounts. Cooking reduces this effect.',
@@ -46,20 +55,45 @@ const tips = [
 ];
 
 export default function HealthTips() {
+  const [tips, setTips] = useState(DEFAULT_TIPS);
   const [current, setCurrent] = useState(0);
   const [autoplay, setAutoplay] = useState(true);
 
+  const fetchTips = async () => {
+    try {
+      const res = await axios.get('http://127.0.0.1:8000/api/tips');
+      if (res.data && res.data.length > 0) {
+        // Map backend response structures (id, title, description) to emoji-enhanced frontend layouts
+        const emojis = ['🥗', '🏃', '😴', '☕', '🧘', '🩺', '💊', '🌿', '🍎', '💧'];
+        const mappedTips = res.data.map((item, idx) => ({
+          id: item.id,
+          emoji: emojis[idx % emojis.length],
+          title: item.title,
+          body: item.description
+        }));
+        setTips(mappedTips);
+      }
+    } catch (err) {
+      console.warn("Failed to load health tips from backend API. Using local fallback.");
+    }
+  };
+
   useEffect(() => {
-    if (!autoplay) return;
+    fetchTips();
+  }, []);
+
+  useEffect(() => {
+    if (!autoplay || tips.length === 0) return;
     const timer = setInterval(() => {
       setCurrent(c => (c + 1) % tips.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, [autoplay]);
+  }, [autoplay, tips.length]);
 
   const prev = () => { setAutoplay(false); setCurrent(c => (c - 1 + tips.length) % tips.length); };
   const next = () => { setAutoplay(false); setCurrent(c => (c + 1) % tips.length); };
 
+  if (tips.length === 0) return null;
   const tip = tips[current];
 
   return (

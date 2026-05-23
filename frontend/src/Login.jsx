@@ -1,13 +1,27 @@
 import { useState, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
-import { Lock, User, ArrowRight, Activity, ShieldCheck, Zap, Scan } from 'lucide-react';
+import { Lock, User, ArrowRight, Activity, ShieldCheck, Zap, Scan, Mail, UserPlus, LogIn, ShieldAlert, KeyRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import NeuralBackground from './NeuralBackground';
+import { useToast } from './Toast';
 
 function Login() {
+  const [loginRole, setLoginRole] = useState('user'); // 'user' (Patient) or 'admin' (Administrator)
+  const [isRegister, setIsRegister] = useState(false);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  // 2FA states
+  const [show2FA, setShow2FA] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationEmail, setVerificationEmail] = useState('');
+
   const navigate = useNavigate();
+  const addToast = useToast();
 
   // Mouse tracking
   const mouseX = useMotionValue(0);
@@ -27,7 +41,6 @@ function Login() {
 
   useEffect(() => {
     const handleMouseMove = (e) => {
-      // Normalize mouse coordinates from -0.5 to 0.5
       const { innerWidth, innerHeight } = window;
       mouseX.set(e.clientX / innerWidth - 0.5);
       mouseY.set(e.clientY / innerHeight - 0.5);
@@ -37,9 +50,147 @@ function Login() {
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, [mouseX, mouseY]);
 
-  const handleLogin = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    navigate('/dashboard');
+    setIsLoading(true);
+
+    if (isRegister) {
+      if (password !== confirmPassword) {
+        addToast({
+          type: 'error',
+          title: 'Validation Error',
+          message: 'Passwords do not match.'
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      if (loginRole === 'admin') {
+        // Admin registration
+        try {
+          const res = await axios.post('http://127.0.0.1:8000/api/admin/register', {
+            name,
+            email,
+            password
+          });
+          
+          addToast({
+            type: 'success',
+            title: 'Admin Registered',
+            message: res.data.message
+          });
+          
+          setIsRegister(false);
+          setPassword('');
+          setConfirmPassword('');
+        } catch (err) {
+          addToast({
+            type: 'error',
+            title: 'Registration Failed',
+            message: err.response?.data?.message || 'Could not complete admin registration.'
+          });
+        }
+      } else {
+        // Patient/User registration
+        try {
+          const res = await axios.post('http://127.0.0.1:8000/api/register', {
+            name,
+            email,
+            password
+          });
+          
+          localStorage.setItem('token', res.data.token);
+          localStorage.setItem('user', JSON.stringify(res.data.user));
+          
+          addToast({
+            type: 'success',
+            title: 'Registration Successful',
+            message: `Welcome, ${res.data.user.name}!`
+          });
+          
+          navigate('/dashboard');
+        } catch (err) {
+          addToast({
+            type: 'error',
+            title: 'Registration Failed',
+            message: err.response?.data?.message || 'Could not complete registration.'
+          });
+        }
+      }
+    } else {
+      // Login flow
+      try {
+        const res = await axios.post('http://127.0.0.1:8000/api/login', {
+          email,
+          password,
+          required_role: loginRole
+        });
+        
+        if (res.data.status === '2fa_required') {
+          // Trigger 2FA view for admin
+          setVerificationEmail(res.data.email);
+          setShow2FA(true);
+          addToast({
+            type: 'info',
+            title: 'Security Code Generated',
+            message: res.data.message
+          });
+        } else {
+          // Standard login success (patient)
+          localStorage.setItem('token', res.data.token);
+          localStorage.setItem('user', JSON.stringify(res.data.user));
+          
+          addToast({
+            type: 'success',
+            title: 'Access Granted',
+            message: `Welcome, ${res.data.user.name}!`
+          });
+          
+          navigate('/dashboard');
+        }
+      } catch (err) {
+        addToast({
+          type: 'error',
+          title: 'Authentication Denied',
+          message: err.response?.data?.message || 'Invalid email or password.'
+        });
+      }
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handleVerify2FA = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const res = await axios.post('http://127.0.0.1:8000/api/login/verify-2fa', {
+        email: verificationEmail,
+        code: verificationCode
+      });
+
+      localStorage.setItem('token', res.data.token);
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+
+      addToast({
+        type: 'success',
+        title: 'Admin Access Granted',
+        message: `Welcome, ${res.data.user.name}!`
+      });
+
+      setShow2FA(false);
+      setVerificationCode('');
+      navigate('/dashboard');
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: 'Verification Failed',
+        message: err.response?.data?.message || 'Invalid or expired security code.'
+      });
+    }
+
+    setIsLoading(false);
   };
 
   return (
@@ -91,10 +242,10 @@ function Login() {
               Diagnostic Core v2.0 Online
             </div>
             
-            <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tight mb-4 leading-tight">
-              Next-Gen <br />
+            <h1 className="text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 leading-tight">
+              Thyroid Disease <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400">
-                Thyroid AI
+                Prediction System
               </span>
             </h1>
             <p className="text-lg text-slate-400 max-w-md leading-relaxed font-medium">
@@ -146,7 +297,7 @@ function Login() {
           </motion.div>
         </div>
 
-        {/* Right Side: 3D Tilting Login Card */}
+        {/* Right Side: 3D Tilting Card */}
         <div className="flex justify-center lg:justify-end">
           <motion.div 
             style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
@@ -163,80 +314,231 @@ function Login() {
                 className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500 bg-[length:200%_auto]"
               />
 
-              <div className="flex flex-col items-center mb-10">
-                <motion.div 
-                  whileHover={{ rotate: 180, scale: 1.1 }}
-                  transition={{ duration: 0.5, type: "spring" }}
-                  className="w-20 h-20 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-3xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(59,130,246,0.2)] border border-white/10 backdrop-blur-md relative overflow-hidden"
-                >
-                  <Scan className="w-10 h-10 text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] z-10" />
-                  <motion.div 
-                    animate={{ y: [-30, 30, -30] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    className="w-full h-[2px] bg-cyan-400 absolute opacity-70 shadow-[0_0_15px_cyan]"
-                  />
-                </motion.div>
-                <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-2 tracking-tight">
-                  Health Portal
-                </h2>
-                <p className="text-slate-400 text-center text-sm font-medium">
-                  Secure access to your diagnostic workspace
-                </p>
-              </div>
-
-              <form onSubmit={handleLogin} className="space-y-6">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider ml-1">Work Email</label>
-                  <div className="relative group/input">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <User className="h-5 w-5 text-slate-400 group-focus-within/input:text-blue-400 transition-colors" />
+              {show2FA ? (
+                /* ------------------ 2FA SECURITY CODE FORM ------------------ */
+                <div>
+                  <div className="flex flex-col items-center mb-6">
+                    <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl flex items-center justify-center mb-4 border border-purple-500/30 backdrop-blur-md">
+                      <KeyRound className="w-8 h-8 text-purple-400" />
                     </div>
-                    <input
-                      type="email"
-                      required
-                      className="w-full bg-slate-950/50 border border-slate-700/50 text-white rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-blue-500/50 focus:bg-slate-900/80 transition-all placeholder:text-slate-500 shadow-inner"
-                      placeholder="doctor@clinic.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
+                    <h2 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-1 tracking-tight">
+                      Security Verification
+                    </h2>
+                    <p className="text-slate-400 text-center text-xs font-medium">
+                      Enter the 6-digit access code printed in your server terminal console.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleVerify2FA} className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-350 uppercase tracking-wider ml-1">Security Code</label>
+                      <input
+                        type="text"
+                        required
+                        maxLength={6}
+                        className="w-full bg-slate-950/50 border border-slate-700/50 text-white rounded-xl text-center py-4 font-mono text-2xl tracking-widest focus:outline-none focus:border-purple-500/50 focus:bg-slate-900/80 transition-all placeholder:text-slate-700 shadow-inner"
+                        placeholder="000000"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                      />
+                    </div>
+
+                    <motion.button
+                      whileHover={isLoading ? {} : { scale: 1.02, boxShadow: "0 0 30px rgba(168,85,247,0.4)" }}
+                      whileTap={isLoading ? {} : { scale: 0.98 }}
+                      type="submit"
+                      disabled={isLoading}
+                      className="w-full mt-4 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center bg-gradient-to-r from-purple-650 to-indigo-650 hover:from-purple-550 hover:to-indigo-555 transition-all text-xs"
+                    >
+                      <span>{isLoading ? "Verifying..." : "Confirm & Access Console"}</span>
+                    </motion.button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShow2FA(false);
+                        setVerificationCode('');
+                      }}
+                      className="w-full text-slate-500 hover:text-slate-350 text-xs font-bold mt-2"
+                    >
+                      Back to Login
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                /* ------------------ STANDARD LOGIN / SIGNUP FORM ------------------ */
+                <div>
+                  <div className="flex flex-col items-center mb-6">
+                    <motion.div 
+                      whileHover={{ rotate: 180, scale: 1.1 }}
+                      transition={{ duration: 0.5, type: "spring" }}
+                      className="w-16 h-16 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center mb-4 border border-white/10 backdrop-blur-md relative overflow-hidden"
+                    >
+                      <Scan className="w-8 h-8 text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] z-10" />
+                      <motion.div 
+                        animate={{ y: [-24, 24, -24] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                        className="w-full h-[2px] bg-cyan-400 absolute opacity-70 shadow-[0_0_15px_cyan]"
+                      />
+                    </motion.div>
+                    <h2 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-1 tracking-tight">
+                      {isRegister ? (loginRole === 'admin' ? "Register Admin" : "Create Account") : loginRole === 'admin' ? "Admin Terminal" : "Patient Portal"}
+                    </h2>
+                    <p className="text-slate-400 text-center text-xs font-medium">
+                      {isRegister ? "Register a new diagnostic credentials" : loginRole === 'admin' ? "Access the central patient databases" : "Access your patient/clinician workspace"}
+                    </p>
+                  </div>
+
+                  {/* Portal Selector Tabs */}
+                  <div className="flex bg-slate-950/60 p-1.5 rounded-xl border border-white/5 mb-6">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginRole('user');
+                        setIsRegister(false);
+                      }}
+                      className={`flex-1 py-2 text-center text-xs font-bold rounded-lg transition-all ${
+                        loginRole === 'user'
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/10'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Patient Workspace
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginRole('admin');
+                        setIsRegister(false);
+                      }}
+                      className={`flex-1 py-2 text-center text-xs font-bold rounded-lg transition-all ${
+                        loginRole === 'admin'
+                          ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/10'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Admin Terminal
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    {isRegister && (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider ml-1">Full Name</label>
+                        <div className="relative group/input">
+                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <User className="h-4.5 w-4.5 text-slate-400 group-focus-within/input:text-blue-400 transition-colors" />
+                          </div>
+                          <input
+                            type="text"
+                            required
+                            className="w-full bg-slate-950/50 border border-slate-700/50 text-white rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:border-blue-500/50 focus:bg-slate-900/80 transition-all placeholder:text-slate-500 shadow-inner"
+                            placeholder={loginRole === 'admin' ? "System Admin" : "Dr. John Doe"}
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider ml-1">
+                        {loginRole === 'admin' ? "Admin Email" : "Email Address"}
+                      </label>
+                      <div className="relative group/input">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <Mail className="h-4.5 w-4.5 text-slate-400 group-focus-within/input:text-blue-400 transition-colors" />
+                        </div>
+                        <input
+                          type="email"
+                          required
+                          className="w-full bg-slate-950/50 border border-slate-700/50 text-white rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:border-blue-500/50 focus:bg-slate-900/80 transition-all placeholder:text-slate-500 shadow-inner"
+                          placeholder={loginRole === 'admin' ? "admin@thyroid.com" : "doctor@clinic.com"}
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider ml-1">Password</label>
+                      <div className="relative group/input">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <Lock className="h-4.5 w-4.5 text-slate-400 group-focus-within/input:text-purple-400 transition-colors" />
+                        </div>
+                        <input
+                          type="password"
+                          required
+                          className="w-full bg-slate-950/50 border border-slate-700/50 text-white rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:border-purple-500/50 focus:bg-slate-900/80 transition-all placeholder:text-slate-500 shadow-inner"
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {isRegister && (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider ml-1">Confirm Password</label>
+                        <div className="relative group/input">
+                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <Lock className="h-4.5 w-4.5 text-slate-400 group-focus-within/input:text-pink-400 transition-colors" />
+                          </div>
+                          <input
+                            type="password"
+                            required
+                            className="w-full bg-slate-950/50 border border-slate-700/50 text-white rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:border-pink-500/50 focus:bg-slate-900/80 transition-all placeholder:text-slate-500 shadow-inner"
+                            placeholder="••••••••"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <motion.button
+                      whileHover={isLoading ? {} : { scale: 1.02, boxShadow: loginRole === 'admin' ? "0 0 30px rgba(168,85,247,0.4)" : "0 0 30px rgba(59,130,246,0.4)" }}
+                      whileTap={isLoading ? {} : { scale: 0.98 }}
+                      type="submit"
+                      disabled={isLoading}
+                      className={`w-full mt-4 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center space-x-2 transition-all relative overflow-hidden group/btn disabled:opacity-50 shadow-md ${
+                        loginRole === 'admin'
+                          ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500'
+                          : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500'
+                      }`}
+                    >
+                      <span className="relative z-10 flex items-center gap-2 tracking-wide text-xs">
+                        {isLoading ? (
+                          "Authenticating..."
+                        ) : isRegister ? (
+                          loginRole === 'admin' ? <>Register Admin Profile <UserPlus className="w-4 h-4" /></> : <>Register Profile <UserPlus className="w-4 h-4" /></>
+                        ) : loginRole === 'admin' ? (
+                          <>Verify Admin Credentials <LogIn className="w-4 h-4" /></>
+                        ) : (
+                          <>Access Patient Workspace <LogIn className="w-4 h-4" /></>
+                        )}
+                      </span>
+                    </motion.button>
+                  </form>
+
+                  {/* Toggle text */}
+                  <div className="mt-6 text-center text-slate-400 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsRegister(!isRegister);
+                        setPassword('');
+                        setConfirmPassword('');
+                      }}
+                      className="text-blue-400 hover:underline font-bold font-mono text-[11px]"
+                    >
+                      {isRegister 
+                        ? (loginRole === 'admin' ? "Already have an Admin account? Sign In" : "Already have an account? Sign In") 
+                        : (loginRole === 'admin' ? "Need a new Admin Profile? Register Admin" : "Don't have an account? Sign Up")}
+                    </button>
                   </div>
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider ml-1">Password</label>
-                  <div className="relative group/input">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Lock className="h-5 w-5 text-slate-400 group-focus-within/input:text-purple-400 transition-colors" />
-                    </div>
-                    <input
-                      type="password"
-                      required
-                      className="w-full bg-slate-950/50 border border-slate-700/50 text-white rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-purple-500/50 focus:bg-slate-900/80 transition-all placeholder:text-slate-500 shadow-inner"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <motion.button
-                  whileHover={{ scale: 1.02, boxShadow: "0 0 30px rgba(59,130,246,0.4)" }}
-                  whileTap={{ scale: 0.98 }}
-                  type="submit"
-                  className="w-full mt-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-4 px-4 rounded-2xl flex items-center justify-center space-x-2 transition-all relative overflow-hidden group/btn shadow-[0_0_20px_rgba(59,130,246,0.3)]"
-                >
-                  <motion.div 
-                    className="absolute inset-0 bg-white/20 skew-x-[-20deg]"
-                    initial={{ x: "-150%" }}
-                    whileHover={{ x: "150%" }}
-                    transition={{ duration: 0.6, ease: "easeInOut" }}
-                  />
-                  <span className="relative z-10 flex items-center gap-2 tracking-wide">
-                    Access Portal <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
-                  </span>
-                </motion.button>
-              </form>
-              
+              )}
             </motion.div>
             
             <div className="mt-8 flex items-center justify-center gap-2 text-slate-500 text-xs" style={{ transform: "translateZ(20px)" }}>

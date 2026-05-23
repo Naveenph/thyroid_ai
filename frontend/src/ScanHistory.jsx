@@ -4,13 +4,15 @@ import { History, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, Trash2, Cl
 import axios from 'axios';
 
 export async function saveScanToHistory(result, fileName) {
-  // Now handled automatically on the backend during the predict endpoint.
-  // We keep this function exported as a no-op to prevent import errors in other files.
+  // Handled automatically on the backend during the predict endpoint.
 }
 
 export async function clearScanHistory() {
+  const token = localStorage.getItem('token');
   try {
-    await axios.delete('http://127.0.0.1:8000/history');
+    await axios.delete('http://127.0.0.1:8000/api/history', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
   } catch (err) {
     console.error("Failed to clear database scan history", err);
   }
@@ -29,8 +31,13 @@ export default function ScanHistory() {
   const [expanded, setExpanded] = useState(true);
 
   const loadHistory = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
     try {
-      const response = await axios.get('http://127.0.0.1:8000/history');
+      const response = await axios.get('http://127.0.0.1:8000/api/history', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const formatted = response.data.map(item => ({
         id: item.id,
         timestamp: item.created_at,
@@ -54,13 +61,23 @@ export default function ScanHistory() {
   }, []);
 
   const handleClear = async () => {
-    await clearScanHistory();
-    setHistory([]);
+    const token = localStorage.getItem('token');
+    try {
+      await axios.delete('http://127.0.0.1:8000/api/history', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setHistory([]);
+    } catch (err) {
+      console.error("Failed to clear history", err);
+    }
   };
 
   const handleDelete = async (id) => {
+    const token = localStorage.getItem('token');
     try {
-      await axios.delete(`http://127.0.0.1:8000/history/${id}`);
+      await axios.delete(`http://127.0.0.1:8000/api/history/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setHistory(prev => prev.filter(entry => entry.id !== id));
     } catch (err) {
       console.error(`Failed to delete scan entry ${id}`, err);
@@ -157,9 +174,9 @@ export default function ScanHistory() {
                             </button>
                           </div>
                           <p className="text-white font-bold text-lg mb-0.5">{entry.confidence}%</p>
-                          {entry.level && <p className="text-xs text-slate-400 mb-1">{entry.level}</p>}
+                          {entry.level && entry.level !== "None" && <p className="text-xs text-slate-400 mb-1">{entry.level}</p>}
                           <p className="text-xs text-slate-500 truncate" title={entry.fileName}>{entry.fileName}</p>
-                          <p className="text-xs text-slate-600 mt-1">{formatDate(entry.timestamp)}</p>
+                          <p className="text-xs text-slate-650 mt-1">{formatDate(entry.timestamp)}</p>
                         </motion.div>
                       );
                     })}
@@ -173,4 +190,3 @@ export default function ScanHistory() {
     </div>
   );
 }
-

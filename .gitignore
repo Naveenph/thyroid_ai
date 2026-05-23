@@ -29,3 +29,10 @@ Thumbs.db
 db.db
 Desktop.ini
 .DS_Store
+
+# Local SQLite databases and credentials
+thyroid_dev.db
+admin_security_code.txt
+
+# Local user uploads
+uploads/
