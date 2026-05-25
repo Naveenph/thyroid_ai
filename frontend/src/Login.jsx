@@ -1,18 +1,22 @@
 import { useState, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
-import { Lock, User, ArrowRight, Activity, ShieldCheck, Zap, Scan, Mail, UserPlus, LogIn, ShieldAlert, KeyRound } from 'lucide-react';
+import { Lock, User, ArrowRight, Activity, ShieldCheck, Zap, Scan, Mail, UserPlus, LogIn, ShieldAlert, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import NeuralBackground from './NeuralBackground';
 import { useToast } from './Toast';
+import { useTheme } from './ThemeContext';
+import { Sun, Moon } from 'lucide-react';
 
 function Login() {
+  const { theme, toggleTheme } = useTheme();
   const [loginRole, setLoginRole] = useState('user'); // 'user' (Patient) or 'admin' (Administrator)
   const [isRegister, setIsRegister] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // 2FA states
@@ -68,7 +72,7 @@ function Login() {
       if (loginRole === 'admin') {
         // Admin registration
         try {
-          const res = await axios.post('http://127.0.0.1:8000/api/admin/register', {
+          const res = await axios.post('http://127.0.0.1:8001/api/admin/register', {
             name,
             email,
             password
@@ -93,7 +97,7 @@ function Login() {
       } else {
         // Patient/User registration
         try {
-          const res = await axios.post('http://127.0.0.1:8000/api/register', {
+          const res = await axios.post('http://127.0.0.1:8001/api/register', {
             name,
             email,
             password
@@ -120,7 +124,7 @@ function Login() {
     } else {
       // Login flow
       try {
-        const res = await axios.post('http://127.0.0.1:8000/api/login', {
+        const res = await axios.post('http://127.0.0.1:8001/api/login', {
           email,
           password,
           required_role: loginRole
@@ -165,7 +169,7 @@ function Login() {
     setIsLoading(true);
 
     try {
-      const res = await axios.post('http://127.0.0.1:8000/api/login/verify-2fa', {
+      const res = await axios.post('http://127.0.0.1:8001/api/login/verify-2fa', {
         email: verificationEmail,
         code: verificationCode
       });
@@ -194,8 +198,16 @@ function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-100 flex items-center justify-center relative overflow-hidden font-sans perspective-1000">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-slate-100 flex items-center justify-center relative overflow-hidden font-sans perspective-1000">
       
+      {/* Theme Toggle */}
+      <button 
+        onClick={toggleTheme}
+        className="absolute top-6 right-6 z-50 p-3 rounded-full bg-slate-900/50 border border-white/10 hover:bg-slate-800 transition-colors shadow-lg text-white"
+      >
+        {theme === 'dark' ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-blue-400" />}
+      </button>
+
       {/* Interactive Spotlight following cursor */}
       <motion.div 
         className="absolute w-[800px] h-[800px] bg-blue-500/15 rounded-full blur-[150px] pointer-events-none z-0 mix-blend-screen"
@@ -249,7 +261,7 @@ function Login() {
               </span>
             </h1>
             <p className="text-lg text-slate-400 max-w-md leading-relaxed font-medium">
-              Empowering clinics with real-time, high-precision nodule detection using state-of-the-art EfficientNet deep learning models.
+              Empowering clinics with real-time, high-precision
             </p>
           </motion.div>
 
@@ -262,7 +274,7 @@ function Login() {
             >
               <Zap className="w-8 h-8 text-amber-400 mb-4 drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]" />
               <h3 className="font-bold text-white text-lg">Instant Analysis</h3>
-              <p className="text-slate-400 text-sm mt-1">Results delivered in under 2 seconds from upload.</p>
+              <p className="text-slate-400 text-sm mt-1">Results delivered within seconds from upload.</p>
             </motion.div>
             
             <motion.div 
@@ -285,7 +297,7 @@ function Login() {
           >
             <div className="flex -space-x-4">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className={`w-12 h-12 rounded-full border-2 border-[#020617] flex items-center justify-center bg-gradient-to-br ${i===1 ? 'from-blue-500 to-purple-600' : i===2 ? 'from-emerald-400 to-cyan-500' : i===3 ? 'from-rose-400 to-orange-500' : 'from-indigo-400 to-blue-500'} shadow-lg`} style={{ zIndex: 10 - i }}>
+                <div key={i} className={`w-12 h-12 rounded-full border-2 border-[var(--bg-primary)] flex items-center justify-center bg-gradient-to-br ${i===1 ? 'from-blue-500 to-purple-600' : i===2 ? 'from-emerald-400 to-cyan-500' : i===3 ? 'from-rose-400 to-orange-500' : 'from-indigo-400 to-blue-500'} shadow-lg`} style={{ zIndex: 10 - i }}>
                   <User className="w-5 h-5 text-white/80" />
                 </div>
               ))}
@@ -467,13 +479,20 @@ function Login() {
                           <Lock className="h-4.5 w-4.5 text-slate-400 group-focus-within/input:text-purple-400 transition-colors" />
                         </div>
                         <input
-                          type="password"
+                          type={showPassword ? "text" : "password"}
                           required
-                          className="w-full bg-slate-950/50 border border-slate-700/50 text-white rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:border-purple-500/50 focus:bg-slate-900/80 transition-all placeholder:text-slate-500 shadow-inner"
+                          className="w-full bg-slate-950/50 border border-slate-700/50 text-white rounded-xl pl-12 pr-12 py-3 text-sm focus:outline-none focus:border-purple-500/50 focus:bg-slate-900/80 transition-all placeholder:text-slate-500 shadow-inner"
                           placeholder="••••••••"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-white transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
                       </div>
                     </div>
 
@@ -485,13 +504,20 @@ function Login() {
                             <Lock className="h-4.5 w-4.5 text-slate-400 group-focus-within/input:text-pink-400 transition-colors" />
                           </div>
                           <input
-                            type="password"
+                            type={showPassword ? "text" : "password"}
                             required
-                            className="w-full bg-slate-950/50 border border-slate-700/50 text-white rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:border-pink-500/50 focus:bg-slate-900/80 transition-all placeholder:text-slate-500 shadow-inner"
+                            className="w-full bg-slate-950/50 border border-slate-700/50 text-white rounded-xl pl-12 pr-12 py-3 text-sm focus:outline-none focus:border-pink-500/50 focus:bg-slate-900/80 transition-all placeholder:text-slate-500 shadow-inner"
                             placeholder="••••••••"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                           />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-white transition-colors"
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
                         </div>
                       </div>
                     )}

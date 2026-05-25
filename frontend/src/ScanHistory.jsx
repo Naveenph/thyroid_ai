@@ -10,7 +10,7 @@ export async function saveScanToHistory(result, fileName) {
 export async function clearScanHistory() {
   const token = localStorage.getItem('token');
   try {
-    await axios.delete('http://127.0.0.1:8000/api/history', {
+    await axios.delete('http://127.0.0.1:8001/api/history', {
       headers: { Authorization: `Bearer ${token}` }
     });
   } catch (err) {
@@ -35,7 +35,7 @@ export default function ScanHistory() {
     if (!token) return;
     
     try {
-      const response = await axios.get('http://127.0.0.1:8000/api/history', {
+      const response = await axios.get('http://127.0.0.1:8001/api/history', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const formatted = response.data.map(item => ({
@@ -63,7 +63,7 @@ export default function ScanHistory() {
   const handleClear = async () => {
     const token = localStorage.getItem('token');
     try {
-      await axios.delete('http://127.0.0.1:8000/api/history', {
+      await axios.delete('http://127.0.0.1:8001/api/history', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setHistory([]);
@@ -75,7 +75,7 @@ export default function ScanHistory() {
   const handleDelete = async (id) => {
     const token = localStorage.getItem('token');
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/history/${id}`, {
+      await axios.delete(`http://127.0.0.1:8001/api/history/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setHistory(prev => prev.filter(entry => entry.id !== id));
@@ -93,9 +93,9 @@ export default function ScanHistory() {
         className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.4)]"
       >
         {/* Header */}
-        <button
+        <div
           onClick={() => setExpanded(v => !v)}
-          className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors"
+          className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
@@ -121,7 +121,7 @@ export default function ScanHistory() {
             )}
             {expanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
           </div>
-        </button>
+        </div>
 
         <AnimatePresence>
           {expanded && (
@@ -173,7 +173,6 @@ export default function ScanHistory() {
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
-                          <p className="text-white font-bold text-lg mb-0.5">{entry.confidence}%</p>
                           {entry.level && entry.level !== "None" && <p className="text-xs text-slate-400 mb-1">{entry.level}</p>}
                           <p className="text-xs text-slate-500 truncate" title={entry.fileName}>{entry.fileName}</p>
                           <p className="text-xs text-slate-650 mt-1">{formatDate(entry.timestamp)}</p>

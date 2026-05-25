@@ -452,6 +452,10 @@ def register():
         
     db = SessionLocal()
     try:
+        user_count = db.query(User).count()
+        if user_count >= 15:
+            return jsonify({"message": "Registration limit reached. Maximum 15 users allowed."}), 403
+            
         existing_user = db.query(User).filter(User.email == email).first()
         if existing_user:
             return jsonify({"message": "Email is already registered"}), 400
@@ -1163,4 +1167,4 @@ def admin_respond_query(qid):
         db.close()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    app.run(host="0.0.0.0", port=8001, debug=True)

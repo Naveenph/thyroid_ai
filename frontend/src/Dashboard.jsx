@@ -3,7 +3,8 @@ import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from
 import { 
   UploadCloud, CheckCircle, AlertTriangle, Activity, Scan, FileImage, LogOut, HeartPulse, 
   ArrowRight, Stethoscope, Phone, ShieldAlert, MapPin, Download, RefreshCw, 
-  Users, Layers, Settings, FileText, Send, HelpCircle, User, Plus, Edit2, Trash2, Check, X
+  Users, Layers, Settings, FileText, Send, HelpCircle, User, Plus, Edit2, Trash2, Check, X,
+  Sun, Moon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -12,10 +13,12 @@ import Chatbot from './Chatbot';
 import { useToast } from './Toast';
 import ScanHistory from './ScanHistory';
 import HealthTips from './HealthTips';
+import { useTheme } from './ThemeContext';
 
 function Dashboard() {
   const navigate = useNavigate();
   const addToast = useToast();
+  const { theme, toggleTheme } = useTheme();
   
   // Auth details
   const token = localStorage.getItem('token');
@@ -24,6 +27,7 @@ function Dashboard() {
   // Navigation / View modes
   const [viewMode, setViewMode] = useState(storedUser?.role === 'admin' ? 'admin' : 'user'); // 'user' or 'admin'
   const [activeAdminTab, setActiveAdminTab] = useState('dashboard'); // 'dashboard', 'users', 'predictions', 'tips', 'queries'
+  const [activeUserTab, setActiveUserTab] = useState('home'); // 'home', 'analyzer', 'history', 'tips', 'support'
 
   // User States (Image Upload & Prediction)
   const [selectedFile, setSelectedFile] = useState(null);
@@ -111,7 +115,7 @@ function Dashboard() {
 
   const fetchUserQueries = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/queries');
+      const res = await axios.get('http://127.0.0.1:8001/api/queries');
       setUserQueries(res.data);
     } catch (err) {
       console.error("Error fetching user queries", err);
@@ -120,7 +124,7 @@ function Dashboard() {
 
   const fetchAdminStats = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/admin/dashboard');
+      const res = await axios.get('http://127.0.0.1:8001/api/admin/dashboard');
       setAdminStats(res.data);
     } catch (err) {
       console.error(err);
@@ -129,7 +133,7 @@ function Dashboard() {
 
   const fetchAdminUsers = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/admin/users');
+      const res = await axios.get('http://127.0.0.1:8001/api/admin/users');
       setAdminUsers(res.data);
     } catch (err) {
       console.error(err);
@@ -138,7 +142,7 @@ function Dashboard() {
 
   const fetchAdminPredictions = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/admin/predictions');
+      const res = await axios.get('http://127.0.0.1:8001/api/admin/predictions');
       setAdminPredictions(res.data);
     } catch (err) {
       console.error(err);
@@ -147,7 +151,7 @@ function Dashboard() {
 
   const fetchAdminTips = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/admin/tips');
+      const res = await axios.get('http://127.0.0.1:8001/api/admin/tips');
       setAdminTips(res.data);
     } catch (err) {
       console.error(err);
@@ -156,7 +160,7 @@ function Dashboard() {
 
   const fetchAdminQueries = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/admin/queries');
+      const res = await axios.get('http://127.0.0.1:8001/api/admin/queries');
       setAdminQueries(res.data);
     } catch (err) {
       console.error(err);
@@ -223,36 +227,6 @@ function Dashboard() {
     }
   };
 
-  const loadSampleImage = async () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 500; canvas.height = 500;
-    const ctx = canvas.getContext('2d');
-    
-    const gradient = ctx.createRadialGradient(250, 250, 50, 250, 250, 250);
-    gradient.addColorStop(0, '#475569');
-    gradient.addColorStop(1, '#020617');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 500, 500);
-    
-    ctx.fillStyle = '#94a3b8';
-    ctx.beginPath();
-    ctx.arc(250, 250, 85, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 22px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Demo Ultrasound Scan', 250, 50);
-    
-    canvas.toBlob((blob) => {
-      const file = new File([blob], "sample_ultrasound.jpg", { type: "image/jpeg" });
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
-      setResult(null);
-      setAnalysisStep(0);
-      addToast({ type: 'info', title: 'Sample Loaded', message: 'Demo scan loaded successfully.' });
-    }, 'image/jpeg');
-  };
 
   const analyzeImage = async () => {
     if (!selectedFile) return;
@@ -264,7 +238,7 @@ function Dashboard() {
 
     try {
       await new Promise(r => setTimeout(r, 1500));
-      const response = await axios.post('http://127.0.0.1:8000/api/predict', formData, {
+      const response = await axios.post('http://127.0.0.1:8001/api/predict', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setResult(response.data);
@@ -303,7 +277,6 @@ function Dashboard() {
 Date: ${new Date().toLocaleString()}
 Prediction: ${result.prediction}
 Category: ${result.category}
-Confidence: ${result.confidence}%
 Level: ${result.level || 'N/A'}
 
 AI Insights:
@@ -328,7 +301,7 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
     setIsQuerySubmitting(true);
 
     try {
-      await axios.post('http://127.0.0.1:8000/api/queries', { question: newQueryText });
+      await axios.post('http://127.0.0.1:8001/api/queries', { question: newQueryText });
       setNewQueryText('');
       fetchUserQueries();
       addToast({ type: 'success', title: 'Query Submitted', message: 'Your support ticket has been sent to the admin.' });
@@ -352,10 +325,10 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
     e.preventDefault();
     try {
       if (editingUser) {
-        await axios.put(`http://127.0.0.1:8000/api/admin/users/${editingUser.id}`, userForm);
+        await axios.put(`http://127.0.0.1:8001/api/admin/users/${editingUser.id}`, userForm);
         addToast({ type: 'success', title: 'User Updated', message: 'Account details saved.' });
       } else {
-        await axios.post('http://127.0.0.1:8000/api/admin/users', userForm);
+        await axios.post('http://127.0.0.1:8001/api/admin/users', userForm);
         addToast({ type: 'success', title: 'User Created', message: 'New user added successfully.' });
       }
       setShowAddUserModal(false);
@@ -376,7 +349,7 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
   const handleDeleteUser = async (uid) => {
     if (confirm("Are you sure you want to delete this user? All their data will be wiped.")) {
       try {
-        await axios.delete(`http://127.0.0.1:8000/api/admin/users/${uid}`);
+        await axios.delete(`http://127.0.0.1:8001/api/admin/users/${uid}`);
         addToast({ type: 'success', title: 'User Deleted', message: 'Account removed.' });
         fetchAdminUsers();
       } catch (err) {
@@ -389,10 +362,10 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
     e.preventDefault();
     try {
       if (editingTip) {
-        await axios.put(`http://127.0.0.1:8000/api/admin/tips/${editingTip.id}`, tipForm);
+        await axios.put(`http://127.0.0.1:8001/api/admin/tips/${editingTip.id}`, tipForm);
         addToast({ type: 'success', title: 'Health Tip Updated', message: 'Tip successfully modified.' });
       } else {
-        await axios.post('http://127.0.0.1:8000/api/admin/tips', tipForm);
+        await axios.post('http://127.0.0.1:8001/api/admin/tips', tipForm);
         addToast({ type: 'success', title: 'Health Tip Added', message: 'Tip successfully added.' });
       }
       setShowAddTipModal(false);
@@ -413,7 +386,7 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
   const handleDeleteTip = async (tid) => {
     if (confirm("Are you sure you want to delete this health tip?")) {
       try {
-        await axios.delete(`http://127.0.0.1:8000/api/admin/tips/${tid}`);
+        await axios.delete(`http://127.0.0.1:8001/api/admin/tips/${tid}`);
         addToast({ type: 'success', title: 'Health Tip Deleted', message: 'Tip removed.' });
         fetchAdminTips();
       } catch (err) {
@@ -427,7 +400,7 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
     if (!text) return;
 
     try {
-      await axios.post(`http://127.0.0.1:8000/api/admin/queries/${qid}/respond`, { response: text });
+      await axios.post(`http://127.0.0.1:8001/api/admin/queries/${qid}/respond`, { response: text });
       addToast({ type: 'success', title: 'Reply Submitted', message: 'Response saved and sent.' });
       setReplyTextMap(prev => ({ ...prev, [qid]: '' }));
       fetchAdminQueries();
@@ -437,7 +410,7 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col items-center py-6 px-4 sm:px-6 lg:px-8 overflow-x-hidden overflow-y-auto relative font-sans perspective-1000">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-slate-100 flex flex-col items-center py-6 px-4 sm:px-6 lg:px-8 overflow-x-hidden overflow-y-auto relative font-sans perspective-1000">
       
       {/* Dynamic Parallax Background */}
       <div className="absolute inset-0 z-0 pointer-events-none">
@@ -477,6 +450,14 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
         </div>
         
         <div className="flex items-center gap-2">
+          <button
+            onClick={toggleTheme}
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-900/50 border border-white/10 hover:bg-slate-800 transition-colors shadow-sm mr-2 text-white"
+            title="Toggle Theme"
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-blue-400" />}
+          </button>
+          
           {storedUser?.role === 'admin' && (
             <motion.button
               whileHover={{ scale: 1.04 }}
@@ -506,9 +487,117 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
 
       {/* -------------------- USER WORKSPACE VIEW -------------------- */}
       {viewMode === 'user' && (
-        <div className="w-full max-w-6xl flex flex-col items-center">
+        <div className="w-full max-w-6xl flex flex-col items-center z-10">
           
-          {/* Diagnostic Panel */}
+          {/* User Navigation Header */}
+          <div className="w-full bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-2 mb-6 flex flex-wrap gap-1">
+            {[
+              { id: 'home', label: 'Home Page', icon: Activity },
+              { id: 'analyzer', label: 'Analyze Image', icon: Scan },
+              { id: 'history', label: 'Scan History', icon: Layers },
+              { id: 'tips', label: 'Health Tips', icon: Stethoscope },
+              { id: 'support', label: 'Support', icon: HelpCircle },
+            ].map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveUserTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    activeUserTab === tab.id 
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/10' 
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="w-full bg-transparent p-0 relative min-h-[400px]">
+            {activeUserTab === 'home' && (
+               <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, ease: "easeOut" }} className="w-full space-y-6">
+                 {/* Hero Banner */}
+                 <div className="relative bg-gradient-to-br from-blue-900/40 via-purple-900/40 to-slate-900/80 backdrop-blur-3xl border border-white/10 rounded-3xl p-8 lg:p-12 shadow-2xl overflow-hidden">
+                   <div className="absolute top-0 right-0 -mt-20 -mr-20 w-80 h-80 bg-blue-500/20 blur-3xl rounded-full"></div>
+                   <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-purple-500/20 blur-3xl rounded-full"></div>
+                   
+                   <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+                     <div className="flex-1 space-y-4">
+                       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                         <span className="inline-block py-1 px-3 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-300 text-xs font-bold mb-2">AI-Powered Diagnostics</span>
+                       </motion.div>
+                       <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
+                         Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">{storedUser?.name || 'User'}</span>
+                       </h2>
+                       <p className="text-slate-300 text-lg md:text-xl max-w-2xl leading-relaxed">
+                         Your intelligent workspace for advanced Thyroid Ultrasound Analysis. Access your scan history, clinical insights, and get instant TI-RADS predictions.
+                       </p>
+                       <div className="pt-4 flex flex-wrap gap-4">
+                         <button onClick={() => setActiveUserTab('analyzer')} className="bg-white text-slate-950 font-bold px-6 py-3 rounded-xl hover:bg-blue-50 hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] flex items-center gap-2">
+                           <Scan className="w-5 h-5" /> Start New Analysis
+                         </button>
+                         <button onClick={() => setActiveUserTab('history')} className="bg-slate-800/50 hover:bg-slate-700/50 border border-white/10 text-white font-bold px-6 py-3 rounded-xl transition-all flex items-center gap-2">
+                           <Layers className="w-5 h-5" /> View Records
+                         </button>
+                       </div>
+                     </div>
+                     <div className="hidden lg:block relative">
+                       <div className="w-48 h-48 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full animate-[spin_10s_linear_infinite] absolute inset-0"></div>
+                       <div className="w-48 h-48 bg-slate-900/80 rounded-full border border-white/10 flex items-center justify-center relative z-10 backdrop-blur-sm">
+                         <Activity className="w-20 h-20 text-blue-400" />
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+
+                 {/* Innovative Dashboard Stats */}
+                 <div className="flex justify-center mt-8">
+
+                   <div className="bg-slate-900/40 backdrop-blur-xl p-6 rounded-3xl border border-white/5 shadow-xl relative overflow-hidden w-full max-w-2xl">
+                     <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-purple-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                     <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                       <Check className="w-5 h-5 text-emerald-400" /> How to use this platform
+                     </h3>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       <div className="bg-slate-950/50 rounded-2xl p-4 border border-white/5 flex gap-3">
+                         <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold shrink-0">1</div>
+                         <div>
+                           <span className="text-sm font-bold text-white block mb-1">Upload Scan</span>
+                           <span className="text-[11px] text-slate-400">Navigate to AI Analyzer and drop your ultrasound image.</span>
+                         </div>
+                       </div>
+                       <div className="bg-slate-950/50 rounded-2xl p-4 border border-white/5 flex gap-3">
+                         <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold shrink-0">2</div>
+                         <div>
+                           <span className="text-sm font-bold text-white block mb-1">AI Processing</span>
+                           <span className="text-[11px] text-slate-400">The deep-learning model will identify key thyroid features.</span>
+                         </div>
+                       </div>
+                       <div className="bg-slate-950/50 rounded-2xl p-4 border border-white/5 flex gap-3">
+                         <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold shrink-0">3</div>
+                         <div>
+                           <span className="text-sm font-bold text-white block mb-1">Get Insights</span>
+                           <span className="text-[11px] text-slate-400">Receive an analysis and detailed clinical recommendations.</span>
+                         </div>
+                       </div>
+                       <div className="bg-slate-950/50 rounded-2xl p-4 border border-white/5 flex gap-3">
+                         <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold shrink-0">4</div>
+                         <div>
+                           <span className="text-sm font-bold text-white block mb-1">Consult Doctor</span>
+                           <span className="text-[11px] text-slate-400">Download your PDF report and show it to your physician.</span>
+                         </div>
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+               </motion.div>
+            )}
+
+            {/* Diagnostic Panel */}
+            {activeUserTab === 'analyzer' && (
           <motion.div 
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -533,12 +622,7 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
                        <RefreshCw className="w-3 h-3" /> Reset
                      </button>
                    )}
-                   <button 
-                     onClick={loadSampleImage} 
-                     className="text-[10px] font-bold bg-blue-500/10 text-blue-400 px-2.5 py-1.5 rounded-lg border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
-                   >
-                     Demo Scan
-                   </button>
+
                  </div>
               </div>
               
@@ -720,26 +804,16 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
                         </div>
                       )}
                     </div>
-
-                    {result.confidence > 0 && (
-                      <div className="bg-slate-900/50 p-4 rounded-xl border border-white/5">
-                        <div className="flex justify-between mb-2 items-end">
-                          <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Classification Confidence</span>
-                          <span className="font-black text-white text-xl">{result.confidence}%</span>
-                        </div>
-                        <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-white/5">
-                          <motion.div initial={{ width: 0 }} animate={{ width: `${result.confidence}%` }} transition={{ duration: 1.5 }} className={`h-full rounded-full ${result.prediction.toLowerCase().includes('abnormal') ? 'bg-gradient-to-r from-red-650 to-pink-500' : 'bg-gradient-to-r from-emerald-650 to-teal-500'}`} />
-                        </div>
-                      </div>
-                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
           </motion.div>
+          )}
 
           {/* User Support Ticketing Section */}
-          <div className="w-full max-w-6xl z-10 mt-6">
+          {activeUserTab === 'support' && (
+          <div className="w-full max-w-6xl z-10">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -810,9 +884,20 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
               </div>
             </motion.div>
           </div>
+          )}
 
-          <ScanHistory />
-          <HealthTips />
+          {activeUserTab === 'history' && (
+            <div className="w-full z-10">
+              <ScanHistory />
+            </div>
+          )}
+
+          {activeUserTab === 'tips' && (
+            <div className="w-full z-10">
+              <HealthTips />
+            </div>
+          )}
+          </div>
         </div>
       )}
 
@@ -876,23 +961,23 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
                 </div>
 
                 <div className="bg-slate-950/30 p-5 rounded-2xl border border-white/5">
-                  <h4 className="text-sm font-bold text-white mb-2">Diagnostic Core Engine Status</h4>
+                  <h4 className="text-sm font-bold text-white mb-2">Clinical Reference: TI-RADS Guidelines</h4>
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between text-xs py-1.5 border-b border-white/5">
-                      <span className="text-slate-400">Database Connection</span>
-                      <span className="text-emerald-400 font-bold flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Stable (MySQL Engine Active)</span>
+                      <span className="text-slate-400">TR1 & TR2 (Benign / Not Suspicious)</span>
+                      <span className="text-emerald-400 font-bold flex items-center gap-1">No FNA required, routine care</span>
                     </div>
                     <div className="flex items-center justify-between text-xs py-1.5 border-b border-white/5">
-                      <span className="text-slate-400">AI Model Framework</span>
-                      <span className="text-blue-400 font-bold flex items-center gap-1"><Check className="w-3.5 h-3.5" /> TensorFlow Serving Interface Pre-trained</span>
+                      <span className="text-slate-400">TR3 (Mild Suspicion)</span>
+                      <span className="text-blue-400 font-bold flex items-center gap-1">FNA if ≥ 2.5 cm</span>
                     </div>
                     <div className="flex items-center justify-between text-xs py-1.5 border-b border-white/5">
-                      <span className="text-slate-400">Upload Storage Directories</span>
-                      <span className="text-emerald-400 font-bold flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Local Static File Storage Mounted</span>
+                      <span className="text-slate-400">TR4 (Moderate Suspicion)</span>
+                      <span className="text-amber-400 font-bold flex items-center gap-1">FNA if ≥ 1.5 cm</span>
                     </div>
                     <div className="flex items-center justify-between text-xs py-1.5">
-                      <span className="text-slate-400">HIPAA Compliance Filter</span>
-                      <span className="text-emerald-400 font-bold flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Metadata Masking Enabled</span>
+                      <span className="text-slate-400">TR5 (High Suspicion)</span>
+                      <span className="text-red-400 font-bold flex items-center gap-1">FNA if ≥ 1.0 cm</span>
                     </div>
                   </div>
                 </div>
@@ -904,87 +989,9 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
                 <div className="flex justify-between items-center border-b border-white/5 pb-2">
                   <h3 className="text-lg font-bold text-white">Clinician & User Account Registry</h3>
-                  <button
-                    onClick={() => {
-                      setEditingUser(null);
-                      setUserForm({ name: '', email: '', password: '', role: 'user' });
-                      setShowAddUserModal(true);
-                    }}
-                    className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add User Profile
-                  </button>
                 </div>
 
-                {showAddUserModal && (
-                  <form onSubmit={handleUserFormSubmit} className="bg-slate-950/60 p-5 rounded-2xl border border-blue-500/20 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-bold text-white">{editingUser ? 'Edit User Credentials' : 'Add New User Profile'}</span>
-                      <button type="button" onClick={() => setShowAddUserModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 block mb-1">Full Name</label>
-                        <input
-                          type="text"
-                          required
-                          value={userForm.name}
-                          onChange={e => setUserForm({ ...userForm, name: e.target.value })}
-                          className="w-full bg-slate-900 border border-slate-700/50 text-white rounded-xl p-2.5 text-xs focus:outline-none focus:border-blue-500"
-                          placeholder="Dr. Smith"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 block mb-1">Email</label>
-                        <input
-                          type="email"
-                          required
-                          value={userForm.email}
-                          onChange={e => setUserForm({ ...userForm, email: e.target.value })}
-                          className="w-full bg-slate-900 border border-slate-700/50 text-white rounded-xl p-2.5 text-xs focus:outline-none focus:border-blue-500"
-                          placeholder="doctor@hosp.org"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 block mb-1">Password {editingUser && '(leave blank to keep current)'}</label>
-                        <input
-                          type="password"
-                          required={!editingUser}
-                          value={userForm.password}
-                          onChange={e => setUserForm({ ...userForm, password: e.target.value })}
-                          className="w-full bg-slate-900 border border-slate-700/50 text-white rounded-xl p-2.5 text-xs focus:outline-none focus:border-blue-500"
-                          placeholder="••••••••"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 block mb-1">Security Role</label>
-                        <select
-                          value={userForm.role}
-                          onChange={e => setUserForm({ ...userForm, role: e.target.value })}
-                          className="w-full bg-slate-900 border border-slate-700/50 text-white rounded-xl p-2.5 text-xs focus:outline-none focus:border-blue-500"
-                        >
-                          <option value="user">User (Clinician Workspace)</option>
-                          <option value="admin">Administrator (Full Access)</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowAddUserModal(false)}
-                        className="bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors"
-                      >
-                        {editingUser ? 'Save Changes' : 'Create Account'}
-                      </button>
-                    </div>
-                  </form>
-                )}
+
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
@@ -1015,8 +1022,7 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
                           </td>
                           <td className="py-3 text-slate-450">{new Date(u.created_at).toLocaleDateString()}</td>
                           <td className="py-3 text-right space-x-1.5">
-                            <button onClick={() => handleEditUserClick(u)} className="text-blue-400 hover:text-white p-1 hover:bg-white/5 rounded-lg transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => handleDeleteUser(u.id)} disabled={u.id === storedUser?.id} className="text-red-400 hover:text-white p-1 hover:bg-white/5 rounded-lg transition-colors disabled:opacity-30"><Trash2 className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => handleDeleteUser(u.id)} disabled={u.id === storedUser?.id || u.role === 'admin'} className="text-red-400 hover:text-white p-1 hover:bg-white/5 rounded-lg transition-colors disabled:opacity-30" title={u.role === 'admin' ? "Cannot delete other administrators" : "Delete User"}><Trash2 className="w-3.5 h-3.5" /></button>
                           </td>
                         </tr>
                       ))}
@@ -1055,7 +1061,7 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
                             <td className="py-3">
                               <div className="flex items-center gap-2">
                                 <img
-                                  src={`http://127.0.0.1:8000/uploads/${pred.filename}`}
+                                  src={`http://127.0.0.1:8001/uploads/${pred.filename}`}
                                   alt="scan"
                                   className="w-10 h-10 object-cover rounded-lg border border-white/10"
                                   onError={(e) => { e.target.src = "https://images.unsplash.com/photo-1576091160550-2173dba999ef?q=80&w=100&auto=format&fit=crop"; }}

@@ -61,7 +61,7 @@ export default function HealthTips() {
 
   const fetchTips = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/tips');
+      const res = await axios.get('http://127.0.0.1:8001/api/tips');
       if (res.data && res.data.length > 0) {
         // Map backend response structures (id, title, description) to emoji-enhanced frontend layouts
         const emojis = ['🥗', '🏃', '😴', '☕', '🧘', '🩺', '💊', '🌿', '🍎', '💧'];

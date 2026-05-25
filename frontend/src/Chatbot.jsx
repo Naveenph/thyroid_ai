@@ -37,7 +37,7 @@ export default function Chatbot() {
     setIsLoading(true);
 
     try {
-      const res = await axios.post('http://127.0.0.1:8000/chat', { message: userMsg });
+      const res = await axios.post('http://127.0.0.1:8001/chat', { message: userMsg });
       setMessages(prev => [...prev, { sender: 'bot', text: res.data.reply }]);
     } catch {
       setMessages(prev => [...prev, { sender: 'bot', text: 'Sorry, I am having trouble connecting to the server. Please ensure the backend is running.' }]);
