@@ -189,9 +189,16 @@ function Dashboard() {
 
   // ------------------ USER ACTIONS ------------------
 
+  const isValidType = (file) => file && (file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/jpg');
+
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file) {
+      if (!isValidType(file)) {
+        addToast({ type: 'error', title: 'Invalid File', message: 'Please upload jpg, png, jpeg.' });
+        if (event.target) event.target.value = '';
+        return;
+      }
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
       setResult(null);
@@ -216,14 +223,14 @@ function Dashboard() {
     if (isAnalyzing) return;
     
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
+    if (file && isValidType(file)) {
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
       setResult(null);
       setAnalysisStep(0);
       addToast({ type: 'info', title: 'Image Uploaded', message: `${file.name} is ready for analysis.` });
     } else {
-      addToast({ type: 'error', title: 'Invalid File', message: 'Please drop a valid image file.' });
+      addToast({ type: 'error', title: 'Invalid File', message: 'Please upload jpg, png, jpeg.' });
     }
   };
 
@@ -237,7 +244,6 @@ function Dashboard() {
     formData.append('file', selectedFile);
 
     try {
-      await new Promise(r => setTimeout(r, 1500));
       const response = await axios.post('http://127.0.0.1:8001/api/predict', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -530,7 +536,7 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
                          <span className="inline-block py-1 px-3 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-300 text-xs font-bold mb-2">AI-Powered Diagnostics</span>
                        </motion.div>
                        <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
-                         Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">{storedUser?.name || 'User'}</span>
+                         Welcome, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">{storedUser?.name || 'User'}</span>
                        </h2>
                        <p className="text-slate-300 text-lg md:text-xl max-w-2xl leading-relaxed">
                          Your intelligent workspace for advanced Thyroid Ultrasound Analysis. Access your scan history, clinical insights, and get instant TI-RADS predictions.
@@ -638,7 +644,7 @@ ${result.doctors?.length ? result.doctors.map(d => `- ${d.name} | ${d.hospital} 
                   'border-2 border-dashed border-slate-700 bg-slate-900/50 cursor-pointer hover:border-blue-500/50 hover:bg-slate-800/50'
                 }`}
               >
-                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect} disabled={isAnalyzing} />
+                <input type="file" ref={fileInputRef} className="hidden" accept=".jpg,.jpeg,.png" onChange={handleFileSelect} disabled={isAnalyzing} />
                 
                 {previewUrl ? (
                   <div className="relative w-full h-full min-h-[280px] flex items-center justify-center rounded-[1.25rem] overflow-hidden">

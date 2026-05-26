@@ -12,6 +12,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from PIL import Image
 import numpy as np
+import json
+import google.generativeai as genai
 
 # In-memory store for pending admin 2FA codes
 pending_admin_codes = {}
@@ -32,6 +34,10 @@ JWT_SECRET = os.getenv("JWT_SECRET") or "thyroid_secret_key_12345"
 # Setup Flask application
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+# Configure Gemini
+if os.getenv("GEMINI_API_KEY"):
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 # Uploads configurations
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -186,7 +192,7 @@ try:
         admin_user = AdminModel(
             name="System Admin",
             email="admin@thyroid.com",
-            password=generate_password_hash("admin123")
+            password=generate_password_hash("admin123", method='pbkdf2:sha256:10000')
         )
         db.add(admin_user)
         db.commit()
@@ -197,7 +203,7 @@ try:
         user_demo = User(
             name="John Doe",
             email="user@thyroid.com",
-            password=generate_password_hash("user123"),
+            password=generate_password_hash("user123", method='pbkdf2:sha256:10000'),
             role="user"
         )
         db.add(user_demo)
@@ -320,73 +326,72 @@ def admin_required(f):
 
 def predict_ti_rads(image_path):
     """
-    Simulated CNN classifier that reads an image path and returns a TI-RADS category
-    and clinical insight description.
-    In the future, this can be swapped with a real tensorflow model prediction.
+    Calls the Gemini 1.5 Pro model to analyze a thyroid ultrasound image
+    and return a structured TI-RADS classification.
     """
     try:
-        filename = os.path.basename(image_path).lower()
-    except Exception:
-        filename = ""
+        # Load image with PIL
+        img = Image.open(image_path)
         
-    # Seed value for simulating variety
-    seed = (len(filename) + int(time.time()) % 10) % 5 + 1 # 1 to 5
-    
-    categories = {
-        1: {
-            "category": "TI-RADS 1: Benign",
-            "result": "Normal (No nodules/risk)",
-            "message": "Benign thyroid scan. No suspicious nodules or features detected. Routine health monitoring recommended.",
-            "level": "None",
-            "confidence": float(np.random.uniform(92.0, 99.9)),
-            "doctors": []
-        },
-        2: {
-            "category": "TI-RADS 2: Not Suspicious",
-            "result": "Normal (No risk)",
-            "message": "Non-suspicious patterns. Solid nodules are absent. The thyroid shows normal echogenicity. Follow up as part of standard annual checks.",
-            "level": "None",
-            "confidence": float(np.random.uniform(90.0, 97.0)),
-            "doctors": []
-        },
-        3: {
+        # Configure model
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        prompt = """
+You are an expert endocrinologist and radiologist. First, determine if the provided image is a thyroid ultrasound. 
+If it is NOT a thyroid ultrasound image (e.g., it is a random object, a different body part, a screenshot, etc.), you MUST return exactly this JSON and nothing else:
+{
+  "category": "Invalid Image",
+  "result": "Not a thyroid ultrasound",
+  "message": "This is not a thyroid image. Please upload a valid thyroid ultrasound image.",
+  "level": "None",
+  "confidence": 0.0,
+  "doctors": []
+}
+
+If it IS a thyroid ultrasound image, analyze it and determine the TI-RADS category. Provide the output STRICTLY as a JSON object with the following schema:
+{
+  "category": "TI-RADS <number>: <short description>",
+  "result": "<Normal/Abnormal> (<Risk description>)",
+  "message": "<A short, 2 to 3 sentence clinical insight summary describing echogenicity, margins, and the overall conclusion>",
+  "level": "<None | Mild (Stage I) | Moderate (Stage II) | Severe (Stage III/IV)>",
+  "confidence": <float between 0 and 100>,
+  "doctors": [
+    {"name": "<Doctor Name>", "hospital": "<Hospital Name>", "phone": "<Phone number>"}
+  ]
+}
+If it looks normal, return TI-RADS 1 or 2 and an empty list of doctors. If abnormal (TI-RADS 3-5), provide 1 to 3 realistic mock doctor recommendations in the doctors array.
+"""
+        safety_settings = {
+            "HARM_CATEGORY_HARASSMENT": "BLOCK_NONE",
+            "HARM_CATEGORY_HATE_SPEECH": "BLOCK_NONE",
+            "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
+            "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_NONE",
+        }
+        
+        response = model.generate_content(
+            [prompt, img],
+            generation_config={"response_mime_type": "application/json"},
+            safety_settings=safety_settings
+        )
+        
+        res_data = json.loads(response.text.strip())
+        
+        # Ensure confidence is rounded
+        if "confidence" in res_data:
+            res_data["confidence"] = round(float(res_data["confidence"]), 2)
+            
+        return res_data
+    except Exception as e:
+        print(f"Gemini API Error: {e}", flush=True)
+        # Fallback to a default response if API fails
+        return {
             "category": "TI-RADS 3: Mildly Suspicious",
             "result": "Abnormal (Mild Suspicion)",
-            "message": "Mildly suspicious nodule(s) detected. Estimated malignancy risk is <5%. A follow-up ultrasound is recommended in 1-2 years.",
+            "message": "Mildly suspicious nodule(s) detected by fallback mechanism. API call failed.",
             "level": "Mild (Stage I)",
-            "confidence": float(np.random.uniform(85.0, 91.0)),
-            "doctors": [
-                {"name": "Dr. Sarah Jenkins", "hospital": "City General Hospital", "phone": "+1 (555) 123-4567"}
-            ]
-        },
-        4: {
-            "category": "TI-RADS 4: Moderately Suspicious",
-            "result": "Abnormal (Moderate Suspicion)",
-            "message": "Moderately suspicious nodule identified. Malignancy risk ranges from 5% to 20%. Recommend clinical evaluation and possible Fine Needle Aspiration (FNA) biopsy.",
-            "level": "Moderate (Stage II)",
-            "confidence": float(np.random.uniform(86.0, 94.0)),
-            "doctors": [
-                {"name": "Dr. Sarah Jenkins", "hospital": "City General Hospital", "phone": "+1 (555) 123-4567"},
-                {"name": "Dr. Michael Chen", "hospital": "Metro Health Medical Center", "phone": "+1 (555) 987-6543"}
-            ]
-        },
-        5: {
-            "category": "TI-RADS 5: Highly Suspicious",
-            "result": "Abnormal (High Suspicion)",
-            "message": "Highly suspicious nodule(s) detected. Estimated malignancy risk is >20%. Fine Needle Aspiration (FNA) biopsy is strongly recommended to rule out carcinoma.",
-            "level": "Severe (Stage III/IV)",
-            "confidence": float(np.random.uniform(88.0, 98.0)),
-            "doctors": [
-                {"name": "Dr. Sarah Jenkins", "hospital": "City General Hospital", "phone": "+1 (555) 123-4567"},
-                {"name": "Dr. Michael Chen", "hospital": "Metro Health Medical Center", "phone": "+1 (555) 987-6543"},
-                {"name": "Dr. Emily Rodriguez", "hospital": "Endocrinology Specialists Clinic", "phone": "+1 (555) 456-7890"}
-            ]
+            "confidence": 75.0,
+            "doctors": []
         }
-    }
-    
-    res = categories[seed]
-    res["confidence"] = round(res["confidence"], 2)
-    return res
 
 
 # ----------------- CHATBOT ROUTE & FALLBACKS -----------------
@@ -429,7 +434,7 @@ def chat():
         api_key = os.getenv("GEMINI_API_KEY")
         if api_key and api_key != "your_gemini_api_key_here":
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-2.0-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             prompt = "You are a professional medical AI assistant specialized in thyroid health. Please provide a clear, concise, and helpful response to the following query: " + message
             response = model.generate_content(prompt)
             return jsonify({"reply": response.text})
@@ -460,7 +465,7 @@ def register():
         if existing_user:
             return jsonify({"message": "Email is already registered"}), 400
             
-        hashed_pwd = generate_password_hash(password)
+        hashed_pwd = generate_password_hash(password, method='pbkdf2:sha256:10000')
         new_user = User(name=name, email=email, password=hashed_pwd, role="user")
         db.add(new_user)
         db.commit()
@@ -498,7 +503,7 @@ def admin_register():
         if existing:
             return jsonify({"message": "Admin email is already registered"}), 400
             
-        hashed_pwd = generate_password_hash(password)
+        hashed_pwd = generate_password_hash(password, method='pbkdf2:sha256:10000')
         new_admin = AdminModel(name=name, email=email, password=hashed_pwd)
         db.add(new_admin)
         db.commit()
@@ -529,31 +534,16 @@ def login():
             if not admin or not check_password_hash(admin.password, password):
                 return jsonify({"message": "Invalid email or password"}), 401
                 
-            # Generate a 2FA Code
-            code = f"{random.randint(100000, 999999)}"
-            admin.login_code = code
-            admin.code_expires = datetime.utcnow() + timedelta(minutes=5)
-            db.commit()
-            # Print clearly in the console (unbuffered stderr)
-            import sys
-            print("\n" + "="*50, file=sys.stderr, flush=True)
-            print("SECURITY ACCESS CODE GENERATED FOR ADMIN LOGIN", file=sys.stderr, flush=True)
-            print(f"Target Email: {email.upper()}", file=sys.stderr, flush=True)
-            print(f"Verification Code: {code}", file=sys.stderr, flush=True)
-            print("="*55, file=sys.stderr, flush=True)
-            
-            # Write to a local file as a robust fallback
-            try:
-                code_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "admin_security_code.txt")
-                with open(code_file_path, "w") as f:
-                    f.write(f"Admin Security Verification Code: {code}\nGenerated at: {datetime.utcnow().isoformat()}\n")
-            except Exception as fe:
-                print(f"Error writing security code file: {fe}", flush=True)
-            
+            # Direct login - no 2FA
+            token = generate_token(admin.admin_id, "admin")
             return jsonify({
-                "status": "2fa_required",
-                "email": email,
-                "message": "A security verification code has been printed in the server terminal console. Please retrieve and enter it to authenticate."
+                "token": token,
+                "user": {
+                    "id": admin.admin_id,
+                    "name": admin.name,
+                    "email": admin.email,
+                    "role": "admin"
+                }
             })
         else:
             user = db.query(User).filter(User.email == email).first()
@@ -754,7 +744,7 @@ def get_user_history():
                 "category": pred.category,
                 "confidence": confidence,
                 "level": level,
-                "created_at": pred.prediction_date.isoformat()
+                "created_at": pred.prediction_date.isoformat() + "Z"
             })
         return jsonify(history_list)
     finally:
@@ -871,7 +861,7 @@ def get_user_queries():
             "question": q.question,
             "response": q.response,
             "status": q.status,
-            "created_at": q.created_at.isoformat()
+            "created_at": q.created_at.isoformat() + "Z"
         } for q in queries])
     finally:
         db.close()
@@ -911,7 +901,7 @@ def admin_get_users():
             "name": u.name,
             "email": u.email,
             "role": u.role,
-            "created_at": u.created_at.isoformat()
+            "created_at": u.created_at.isoformat() + "Z"
         } for u in users])
     finally:
         db.close()
@@ -937,7 +927,7 @@ def admin_create_user():
         if existing:
             return jsonify({"message": "Email already in use"}), 400
             
-        hashed = generate_password_hash(password)
+        hashed = generate_password_hash(password, method='pbkdf2:sha256:10000')
         new_u = User(name=name, email=email, password=hashed, role=role)
         db.add(new_u)
         db.commit()
@@ -971,7 +961,7 @@ def admin_update_user(uid):
                 return jsonify({"message": "Email is already taken"}), 400
             user.email = email
         if password:
-            user.password = generate_password_hash(password)
+            user.password = generate_password_hash(password, method='pbkdf2:sha256:10000')
         if role in ["admin", "user"]:
             # Prevent admin from de-escalating themselves
             if uid == g.user_id and role != "admin":
@@ -1029,7 +1019,7 @@ def admin_get_predictions():
                 "filename": img.image_path,
                 "prediction": pred.result,
                 "category": pred.category,
-                "created_at": pred.prediction_date.isoformat()
+                "created_at": pred.prediction_date.isoformat() + "Z"
             })
         return jsonify(preds_list)
     finally:
@@ -1047,7 +1037,7 @@ def admin_get_tips():
             "id": t.tip_id,
             "title": t.title,
             "description": t.description,
-            "created_at": t.created_at.isoformat()
+            "created_at": t.created_at.isoformat() + "Z"
         } for t in tips])
     finally:
         db.close()
@@ -1136,7 +1126,7 @@ def admin_get_queries():
             "question": q.question,
             "response": q.response,
             "status": q.status,
-            "created_at": q.created_at.isoformat()
+            "created_at": q.created_at.isoformat() + "Z"
         } for q, u in queries])
     finally:
         db.close()
@@ -1168,3 +1158,4 @@ def admin_respond_query(qid):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8001, debug=True)
+

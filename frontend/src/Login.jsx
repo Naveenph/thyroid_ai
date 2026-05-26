@@ -19,10 +19,7 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 2FA states
-  const [show2FA, setShow2FA] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
-  const [verificationEmail, setVerificationEmail] = useState('');
+
 
   const navigate = useNavigate();
   const addToast = useToast();
@@ -103,16 +100,17 @@ function Login() {
             password
           });
           
-          localStorage.setItem('token', res.data.token);
-          localStorage.setItem('user', JSON.stringify(res.data.user));
-          
           addToast({
             type: 'success',
             title: 'Registration Successful',
-            message: `Welcome, ${res.data.user.name}!`
+            message: `Account created! Please log in to continue.`
           });
           
-          navigate('/dashboard');
+          setIsRegister(false);
+          setEmail('');
+          setPassword('');
+          setConfirmPassword('');
+          setName('');
         } catch (err) {
           addToast({
             type: 'error',
@@ -130,15 +128,8 @@ function Login() {
           required_role: loginRole
         });
         
-        if (res.data.status === '2fa_required') {
-          // Trigger 2FA view for admin
-          setVerificationEmail(res.data.email);
-          setShow2FA(true);
-          addToast({
-            type: 'info',
-            title: 'Security Code Generated',
-            message: res.data.message
-          });
+        if (false) {
+          // 2FA disabled
         } else {
           // Standard login success (patient)
           localStorage.setItem('token', res.data.token);
@@ -164,38 +155,7 @@ function Login() {
     setIsLoading(false);
   };
 
-  const handleVerify2FA = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
 
-    try {
-      const res = await axios.post('http://127.0.0.1:8001/api/login/verify-2fa', {
-        email: verificationEmail,
-        code: verificationCode
-      });
-
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
-
-      addToast({
-        type: 'success',
-        title: 'Admin Access Granted',
-        message: `Welcome, ${res.data.user.name}!`
-      });
-
-      setShow2FA(false);
-      setVerificationCode('');
-      navigate('/dashboard');
-    } catch (err) {
-      addToast({
-        type: 'error',
-        title: 'Verification Failed',
-        message: err.response?.data?.message || 'Invalid or expired security code.'
-      });
-    }
-
-    setIsLoading(false);
-  };
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-slate-100 flex items-center justify-center relative overflow-hidden font-sans perspective-1000">
@@ -326,60 +286,8 @@ function Login() {
                 className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500 bg-[length:200%_auto]"
               />
 
-              {show2FA ? (
-                /* ------------------ 2FA SECURITY CODE FORM ------------------ */
-                <div>
-                  <div className="flex flex-col items-center mb-6">
-                    <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl flex items-center justify-center mb-4 border border-purple-500/30 backdrop-blur-md">
-                      <KeyRound className="w-8 h-8 text-purple-400" />
-                    </div>
-                    <h2 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-1 tracking-tight">
-                      Security Verification
-                    </h2>
-                    <p className="text-slate-400 text-center text-xs font-medium">
-                      Enter the 6-digit access code printed in your server terminal console.
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleVerify2FA} className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-350 uppercase tracking-wider ml-1">Security Code</label>
-                      <input
-                        type="text"
-                        required
-                        maxLength={6}
-                        className="w-full bg-slate-950/50 border border-slate-700/50 text-white rounded-xl text-center py-4 font-mono text-2xl tracking-widest focus:outline-none focus:border-purple-500/50 focus:bg-slate-900/80 transition-all placeholder:text-slate-700 shadow-inner"
-                        placeholder="000000"
-                        value={verificationCode}
-                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                      />
-                    </div>
-
-                    <motion.button
-                      whileHover={isLoading ? {} : { scale: 1.02, boxShadow: "0 0 30px rgba(168,85,247,0.4)" }}
-                      whileTap={isLoading ? {} : { scale: 0.98 }}
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full mt-4 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center bg-gradient-to-r from-purple-650 to-indigo-650 hover:from-purple-550 hover:to-indigo-555 transition-all text-xs"
-                    >
-                      <span>{isLoading ? "Verifying..." : "Confirm & Access Console"}</span>
-                    </motion.button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShow2FA(false);
-                        setVerificationCode('');
-                      }}
-                      className="w-full text-slate-500 hover:text-slate-350 text-xs font-bold mt-2"
-                    >
-                      Back to Login
-                    </button>
-                  </form>
-                </div>
-              ) : (
-                /* ------------------ STANDARD LOGIN / SIGNUP FORM ------------------ */
-                <div>
+              {/* ------------------ STANDARD LOGIN / SIGNUP FORM ------------------ */}
+              <div>
                   <div className="flex flex-col items-center mb-6">
                     <motion.div 
                       whileHover={{ rotate: 180, scale: 1.1 }}
@@ -564,7 +472,6 @@ function Login() {
                     </button>
                   </div>
                 </div>
-              )}
             </motion.div>
             
             <div className="mt-8 flex items-center justify-center gap-2 text-slate-500 text-xs" style={{ transform: "translateZ(20px)" }}>
